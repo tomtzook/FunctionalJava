@@ -11,25 +11,24 @@ import java.util.function.DoubleSupplier;
 import java.util.function.DoubleToIntFunction;
 import java.util.function.DoubleToLongFunction;
 import java.util.function.DoubleUnaryOperator;
+import java.util.function.Supplier;
 
 public interface DoubleFlow {
 
-    OptionalDouble get();
-    boolean hasValue();
-
     DoubleFlow map(DoubleUnaryOperator mapper);
-    IntFlow map(DoubleToIntFunction mapper);
-    LongFlow map(DoubleToLongFunction mapper);
-    <R> Flow<R> map(DoubleFunction<R> mapper);
+    IntFlow mapToInt(DoubleToIntFunction mapper);
+    LongFlow mapToLong(DoubleToLongFunction mapper);
+    <R> Flow<R> mapToObj(DoubleFunction<R> mapper);
 
     DoubleFlow filter(DoublePredicate predicate);
-    boolean doesAnswer(DoublePredicate predicate);
 
+    OptionalDouble get();
+    boolean doesAnswer(DoublePredicate predicate);
     Runnable futureConsume(DoubleConsumer consumer);
     void consume(DoubleConsumer consumer);
 
     static DoubleFlow from(DoubleSupplier supplier) {
-        return new Supplied(supplier);
+        return new Pipeline(new ValueBase(supplier));
     }
 
     static DoubleFlow of(double value) {
@@ -40,63 +39,118 @@ public interface DoubleFlow {
         return new Empty();
     }
 
-    class Supplied implements DoubleFlow {
+    class Pipeline implements DoubleFlow {
 
-        private final DoubleSupplier mSupplier;
+        private final Collector mCollector;
+        private final ValueBase mValueBase;
+        private final DoubleConsumer mDownflow;
 
-        private Supplied(DoubleSupplier supplier) {
-            mSupplier = supplier;
+        public Pipeline(Collector collector, ValueBase valueBase, DoubleConsumer downflow) {
+            mCollector = collector;
+            mValueBase = valueBase;
+            mDownflow = downflow;
+        }
+
+        public Pipeline(ValueBase valueBase) {
+            mValueBase = valueBase;
+
+            mCollector = new Collector();
+            mDownflow = mCollector;
         }
 
         @Override
-        public OptionalDouble get() {
-            return OptionalDouble.of(mSupplier.getAsDouble());
+        public DoubleFlow map(DoubleUnaryOperator mapper) {
+            return new Pipeline(mCollector, mValueBase, (value)-> {
+                mDownflow.accept(mapper.applyAsDouble(value));
+            });
         }
 
         @Override
-        public boolean hasValue() {
-            return true;
+        public IntFlow mapToInt(DoubleToIntFunction mapper) {
+            return null;
         }
 
         @Override
-        public DoubleFlow map(DoubleUnaryOperator operator) {
-            return of(operator.applyAsDouble(mSupplier.getAsDouble()));
+        public LongFlow mapToLong(DoubleToLongFunction mapper) {
+            return null;
         }
 
         @Override
-        public IntFlow map(DoubleToIntFunction mapper) {
-            return IntFlow.of(mapper.applyAsInt(mSupplier.getAsDouble()));
-        }
-
-        @Override
-        public LongFlow map(DoubleToLongFunction mapper) {
-            return LongFlow.of(mapper.applyAsLong(mSupplier.getAsDouble()));
-        }
-
-        @Override
-        public <R> Flow<R> map(DoubleFunction<R> mapper) {
-            return Flow.of(mapper.apply(mSupplier.getAsDouble()));
+        public <R> Flow<R> mapToObj(DoubleFunction<R> mapper) {
+            return null;
         }
 
         @Override
         public DoubleFlow filter(DoublePredicate predicate) {
-            double value = mSupplier.getAsDouble();
-            return predicate.test(value) ? from(mSupplier) : empty();
+            return new Pipeline(mCollector, mValueBase, (value) -> {
+                if (predicate.test(value)) {
+                    mDownflow.accept(value);
+                }
+            });
+        }
+
+        @Override
+        public OptionalDouble get() {
+            return evaluate();
         }
 
         @Override
         public boolean doesAnswer(DoublePredicate predicate) {
-            return predicate.test(mSupplier.getAsDouble());
+            OptionalDouble value = get();
+            return value.isPresent() && predicate.test(value.getAsDouble());
         }
 
         @Override
         public Runnable futureConsume(DoubleConsumer consumer) {
-            return Runnables.fromConsumer(consumer, mSupplier.getAsDouble());
+            return ()->consume(consumer);
         }
 
         @Override
         public void consume(DoubleConsumer consumer) {
+            OptionalDouble value = get();
+            if (value.isPresent()) {
+                consumer.accept(value.getAsDouble());
+            }
+        }
+
+        private OptionalDouble evaluate() {
+            mValueBase.forValue(mDownflow);
+            return mCollector.get();
+        }
+    }
+
+    class ValueBase {
+
+        private final DoubleSupplier mSupplier;
+
+        public ValueBase(DoubleSupplier supplier) {
+            mSupplier = supplier;
+        }
+
+        public void forValue(DoubleConsumer consumer) {
             consumer.accept(mSupplier.getAsDouble());
+        }
+    }
+
+    class Collector implements Supplier<OptionalDouble>, DoubleConsumer {
+
+        private double mValue;
+        private boolean mHasValue;
+
+        public Collector() {
+            mValue = 0.0;
+            mHasValue = false;
+        }
+
+        @Override
+        public void accept(double value) {
+            mValue = value;
+            mHasValue = true;
+        }
+
+        @Override
+        public OptionalDouble get() {
+            return mHasValue ? OptionalDouble.of(mValue) : OptionalDouble.empty();
         }
     }
 
@@ -105,38 +159,33 @@ public interface DoubleFlow {
         private Empty() {}
 
         @Override
-        public OptionalDouble get() {
-            return OptionalDouble.empty();
-        }
-
-        @Override
-        public boolean hasValue() {
-            return false;
-        }
-
-        @Override
         public DoubleFlow map(DoubleUnaryOperator operator) {
             return this;
         }
 
         @Override
-        public IntFlow map(DoubleToIntFunction mapper) {
+        public IntFlow mapToInt(DoubleToIntFunction mapper) {
             return IntFlow.empty();
         }
 
         @Override
-        public LongFlow map(DoubleToLongFunction mapper) {
+        public LongFlow mapToLong(DoubleToLongFunction mapper) {
             return LongFlow.empty();
         }
 
         @Override
-        public <R> Flow<R> map(DoubleFunction<R> mapper) {
+        public <R> Flow<R> mapToObj(DoubleFunction<R> mapper) {
             return Flow.empty();
         }
 
         @Override
         public DoubleFlow filter(DoublePredicate predicate) {
             return this;
+        }
+
+        @Override
+        public OptionalDouble get() {
+            return OptionalDouble.empty();
         }
 
         @Override

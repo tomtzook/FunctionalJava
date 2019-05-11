@@ -60,22 +60,22 @@ public interface IntFlow {
 
         @Override
         public IntFlow map(IntUnaryOperator operator) {
-            return of(operator.applyAsInt(mSupplier.getAsInt()));
+            return from(()->operator.applyAsInt(mSupplier.getAsInt()));
         }
 
         @Override
         public DoubleFlow map(IntToDoubleFunction mapper) {
-            return DoubleFlow.of(mapper.applyAsDouble(mSupplier.getAsInt()));
+            return DoubleFlow.from(()->mapper.applyAsDouble(mSupplier.getAsInt()));
         }
 
         @Override
         public LongFlow map(IntToLongFunction mapper) {
-            return LongFlow.of(mapper.applyAsLong(mSupplier.getAsInt()));
+            return LongFlow.from(()->mapper.applyAsLong(mSupplier.getAsInt()));
         }
 
         @Override
         public <R> Flow<R> map(IntFunction<R> mapper) {
-            return Flow.of(mapper.apply(mSupplier.getAsInt()));
+            return Flow.from(()->mapper.apply(mSupplier.getAsInt()));
         }
 
         @Override
