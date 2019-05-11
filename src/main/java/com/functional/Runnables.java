@@ -9,6 +9,10 @@ public class Runnables {
 
     private Runnables() {}
 
+    public static Runnable empty() {
+        return () -> { };
+    }
+
     public static Runnable fromConsumer(IntConsumer consumer, int value) {
         return ()->consumer.accept(value);
     }
