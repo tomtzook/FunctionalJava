@@ -5,49 +5,29 @@ import com.functional.Suppliers;
 
 import java.util.OptionalDouble;
 import java.util.function.DoubleConsumer;
+import java.util.function.DoubleFunction;
 import java.util.function.DoublePredicate;
 import java.util.function.DoubleSupplier;
+import java.util.function.DoubleToIntFunction;
+import java.util.function.DoubleToLongFunction;
 import java.util.function.DoubleUnaryOperator;
 
 public interface DoubleFlow {
 
     OptionalDouble get();
 
-    DoubleFlow map(DoubleUnaryOperator operator);
+    DoubleFlow map(DoubleUnaryOperator mapper);
+    IntFlow map(DoubleToIntFunction mapper);
+    LongFlow map(DoubleToLongFunction mapper);
+    <R> Flow<R> map(DoubleFunction<R> mapper);
+
     DoubleFlow filter(DoublePredicate predicate);
 
     Runnable futureConsume(DoubleConsumer consumer);
     void consume(DoubleConsumer consumer);
 
     static DoubleFlow from(DoubleSupplier supplier) {
-        return new DoubleFlow() {
-
-            @Override
-            public OptionalDouble get() {
-                return OptionalDouble.of(supplier.getAsDouble());
-            }
-
-            @Override
-            public DoubleFlow map(DoubleUnaryOperator operator) {
-                return of(operator.applyAsDouble(supplier.getAsDouble()));
-            }
-
-            @Override
-            public DoubleFlow filter(DoublePredicate predicate) {
-                double value = supplier.getAsDouble();
-                return predicate.test(value) ? from(supplier) : empty();
-            }
-
-            @Override
-            public Runnable futureConsume(DoubleConsumer consumer) {
-                return Runnables.fromConsumer(consumer, supplier.getAsDouble());
-            }
-
-            @Override
-            public void consume(DoubleConsumer consumer) {
-                consumer.accept(supplier.getAsDouble());
-            }
-        };
+        return new Supplied(supplier);
     }
 
     static DoubleFlow of(double value) {
@@ -55,30 +35,100 @@ public interface DoubleFlow {
     }
 
     static DoubleFlow empty() {
-        return new DoubleFlow() {
-            @Override
-            public OptionalDouble get() {
-                return OptionalDouble.empty();
-            }
+        return new Empty();
+    }
 
-            @Override
-            public DoubleFlow map(DoubleUnaryOperator operator) {
-                return empty();
-            }
+    class Supplied implements DoubleFlow {
 
-            @Override
-            public DoubleFlow filter(DoublePredicate predicate) {
-                return empty();
-            }
+        private final DoubleSupplier mSupplier;
 
-            @Override
-            public Runnable futureConsume(DoubleConsumer consumer) {
-                return Runnables.empty();
-            }
+        private Supplied(DoubleSupplier supplier) {
+            mSupplier = supplier;
+        }
 
-            @Override
-            public void consume(DoubleConsumer consumer) {
-            }
-        };
+        @Override
+        public OptionalDouble get() {
+            return OptionalDouble.of(mSupplier.getAsDouble());
+        }
+
+        @Override
+        public DoubleFlow map(DoubleUnaryOperator operator) {
+            return of(operator.applyAsDouble(mSupplier.getAsDouble()));
+        }
+
+        @Override
+        public IntFlow map(DoubleToIntFunction mapper) {
+            return IntFlow.of(mapper.applyAsInt(mSupplier.getAsDouble()));
+        }
+
+        @Override
+        public LongFlow map(DoubleToLongFunction mapper) {
+            return LongFlow.of(mapper.applyAsLong(mSupplier.getAsDouble()));
+        }
+
+        @Override
+        public <R> Flow<R> map(DoubleFunction<R> mapper) {
+            return Flow.of(mapper.apply(mSupplier.getAsDouble()));
+        }
+
+        @Override
+        public DoubleFlow filter(DoublePredicate predicate) {
+            double value = mSupplier.getAsDouble();
+            return predicate.test(value) ? from(mSupplier) : empty();
+        }
+
+        @Override
+        public Runnable futureConsume(DoubleConsumer consumer) {
+            return Runnables.fromConsumer(consumer, mSupplier.getAsDouble());
+        }
+
+        @Override
+        public void consume(DoubleConsumer consumer) {
+            consumer.accept(mSupplier.getAsDouble());
+        }
+    }
+
+    class Empty implements DoubleFlow {
+
+        private Empty() {}
+
+        @Override
+        public OptionalDouble get() {
+            return OptionalDouble.empty();
+        }
+
+        @Override
+        public DoubleFlow map(DoubleUnaryOperator operator) {
+            return this;
+        }
+
+        @Override
+        public IntFlow map(DoubleToIntFunction mapper) {
+            return IntFlow.empty();
+        }
+
+        @Override
+        public LongFlow map(DoubleToLongFunction mapper) {
+            return LongFlow.empty();
+        }
+
+        @Override
+        public <R> Flow<R> map(DoubleFunction<R> mapper) {
+            return Flow.empty();
+        }
+
+        @Override
+        public DoubleFlow filter(DoublePredicate predicate) {
+            return this;
+        }
+
+        @Override
+        public Runnable futureConsume(DoubleConsumer consumer) {
+            return Runnables.empty();
+        }
+
+        @Override
+        public void consume(DoubleConsumer consumer) {
+        }
     }
 }
