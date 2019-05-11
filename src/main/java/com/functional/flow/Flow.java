@@ -15,6 +15,7 @@ import java.util.function.UnaryOperator;
 public interface Flow<T> {
 
     Optional<T> get();
+    boolean hasValue();
 
     Flow<T> map(UnaryOperator<T> operator);
     IntFlow map(ToIntFunction<T> mapper);
@@ -22,6 +23,7 @@ public interface Flow<T> {
     LongFlow map(ToLongFunction<T> mapper);
 
     Flow<T> filter(Predicate<T> predicate);
+    boolean doesAnswer(Predicate<T> predicate);
 
     Runnable futureConsume(Consumer<T> consumer);
     void consume(Consumer<T> consumer);
@@ -48,7 +50,12 @@ public interface Flow<T> {
 
         @Override
         public Optional<T> get() {
-            return Optional.of(mSupplier.get());
+            return Optional.ofNullable(mSupplier.get());
+        }
+
+        @Override
+        public boolean hasValue() {
+            return get().isPresent();
         }
 
         @Override
@@ -78,6 +85,11 @@ public interface Flow<T> {
         }
 
         @Override
+        public boolean doesAnswer(Predicate<T> predicate) {
+            return predicate.test(mSupplier.get());
+        }
+
+        @Override
         public Runnable futureConsume(Consumer<T> consumer) {
             return Runnables.fromConsumer(consumer, mSupplier.get());
         }
@@ -95,6 +107,11 @@ public interface Flow<T> {
         @Override
         public Optional<T> get() {
             return Optional.empty();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return false;
         }
 
         @Override
@@ -120,6 +137,11 @@ public interface Flow<T> {
         @Override
         public Flow<T> filter(Predicate<T> predicate) {
             return this;
+        }
+
+        @Override
+        public boolean doesAnswer(Predicate<T> predicate) {
+            return false;
         }
 
         @Override

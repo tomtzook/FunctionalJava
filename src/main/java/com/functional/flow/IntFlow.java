@@ -15,6 +15,7 @@ import java.util.function.IntUnaryOperator;
 public interface IntFlow {
 
     OptionalInt get();
+    boolean hasValue();
 
     IntFlow map(IntUnaryOperator operator);
     DoubleFlow map(IntToDoubleFunction mapper);
@@ -22,6 +23,7 @@ public interface IntFlow {
     <R> Flow<R> map(IntFunction<R> mapper);
 
     IntFlow filter(IntPredicate predicate);
+    boolean doesAnswer(IntPredicate predicate);
 
     Runnable futureConsume(IntConsumer consumer);
     void consume(IntConsumer consumer);
@@ -52,6 +54,11 @@ public interface IntFlow {
         }
 
         @Override
+        public boolean hasValue() {
+            return true;
+        }
+
+        @Override
         public IntFlow map(IntUnaryOperator operator) {
             return of(operator.applyAsInt(mSupplier.getAsInt()));
         }
@@ -78,6 +85,11 @@ public interface IntFlow {
         }
 
         @Override
+        public boolean doesAnswer(IntPredicate predicate) {
+            return predicate.test(mSupplier.getAsInt());
+        }
+
+        @Override
         public Runnable futureConsume(IntConsumer consumer) {
             return Runnables.fromConsumer(consumer, mSupplier.getAsInt());
         }
@@ -95,6 +107,11 @@ public interface IntFlow {
         @Override
         public OptionalInt get() {
             return OptionalInt.empty();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return false;
         }
 
         @Override
@@ -120,6 +137,11 @@ public interface IntFlow {
         @Override
         public IntFlow filter(IntPredicate predicate) {
             return this;
+        }
+
+        @Override
+        public boolean doesAnswer(IntPredicate predicate) {
+            return false;
         }
 
         @Override

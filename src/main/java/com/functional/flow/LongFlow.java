@@ -15,6 +15,7 @@ import java.util.function.LongUnaryOperator;
 public interface LongFlow {
 
     OptionalLong get();
+    boolean hasValue();
 
     LongFlow map(LongUnaryOperator operator);
     IntFlow map(LongToIntFunction mapper);
@@ -22,6 +23,7 @@ public interface LongFlow {
     <R> Flow<R> map(LongFunction<R> mapper);
 
     LongFlow filter(LongPredicate predicate);
+    boolean doesAnswer(LongPredicate predicate);
 
     Runnable futureConsume(LongConsumer consumer);
     void consume(LongConsumer consumer);
@@ -52,6 +54,11 @@ public interface LongFlow {
         }
 
         @Override
+        public boolean hasValue() {
+            return true;
+        }
+
+        @Override
         public LongFlow map(LongUnaryOperator operator) {
             return of(operator.applyAsLong(mSupplier.getAsLong()));
         }
@@ -78,6 +85,11 @@ public interface LongFlow {
         }
 
         @Override
+        public boolean doesAnswer(LongPredicate predicate) {
+            return predicate.test(mSupplier.getAsLong());
+        }
+
+        @Override
         public Runnable futureConsume(LongConsumer consumer) {
             return Runnables.fromConsumer(consumer, mSupplier.getAsLong());
         }
@@ -95,6 +107,11 @@ public interface LongFlow {
         @Override
         public OptionalLong get() {
             return OptionalLong.empty();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return false;
         }
 
         @Override
@@ -120,6 +137,11 @@ public interface LongFlow {
         @Override
         public LongFlow filter(LongPredicate predicate) {
             return this;
+        }
+
+        @Override
+        public boolean doesAnswer(LongPredicate predicate) {
+            return false;
         }
 
         @Override

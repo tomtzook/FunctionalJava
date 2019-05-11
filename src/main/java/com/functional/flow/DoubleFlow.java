@@ -15,6 +15,7 @@ import java.util.function.DoubleUnaryOperator;
 public interface DoubleFlow {
 
     OptionalDouble get();
+    boolean hasValue();
 
     DoubleFlow map(DoubleUnaryOperator mapper);
     IntFlow map(DoubleToIntFunction mapper);
@@ -22,6 +23,7 @@ public interface DoubleFlow {
     <R> Flow<R> map(DoubleFunction<R> mapper);
 
     DoubleFlow filter(DoublePredicate predicate);
+    boolean doesAnswer(DoublePredicate predicate);
 
     Runnable futureConsume(DoubleConsumer consumer);
     void consume(DoubleConsumer consumer);
@@ -52,6 +54,11 @@ public interface DoubleFlow {
         }
 
         @Override
+        public boolean hasValue() {
+            return true;
+        }
+
+        @Override
         public DoubleFlow map(DoubleUnaryOperator operator) {
             return of(operator.applyAsDouble(mSupplier.getAsDouble()));
         }
@@ -78,6 +85,11 @@ public interface DoubleFlow {
         }
 
         @Override
+        public boolean doesAnswer(DoublePredicate predicate) {
+            return predicate.test(mSupplier.getAsDouble());
+        }
+
+        @Override
         public Runnable futureConsume(DoubleConsumer consumer) {
             return Runnables.fromConsumer(consumer, mSupplier.getAsDouble());
         }
@@ -95,6 +107,11 @@ public interface DoubleFlow {
         @Override
         public OptionalDouble get() {
             return OptionalDouble.empty();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return false;
         }
 
         @Override
@@ -120,6 +137,11 @@ public interface DoubleFlow {
         @Override
         public DoubleFlow filter(DoublePredicate predicate) {
             return this;
+        }
+
+        @Override
+        public boolean doesAnswer(DoublePredicate predicate) {
+            return false;
         }
 
         @Override
