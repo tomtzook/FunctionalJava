@@ -1,156 +1,110 @@
 package com.functional.flow;
 
-import com.functional.Runnables;
-import com.functional.Suppliers;
-
 import java.util.OptionalInt;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
-import java.util.function.IntSupplier;
 import java.util.function.IntToDoubleFunction;
 import java.util.function.IntToLongFunction;
 import java.util.function.IntUnaryOperator;
+import java.util.stream.IntStream;
 
 public interface IntFlow {
 
-    OptionalInt get();
-    boolean hasValue();
-
-    IntFlow map(IntUnaryOperator operator);
-    DoubleFlow map(IntToDoubleFunction mapper);
-    LongFlow map(IntToLongFunction mapper);
-    <R> Flow<R> map(IntFunction<R> mapper);
-
     IntFlow filter(IntPredicate predicate);
-    boolean doesAnswer(IntPredicate predicate);
 
-    Runnable futureConsume(IntConsumer consumer);
-    void consume(IntConsumer consumer);
+    IntFlow map(IntUnaryOperator mapper);
+    <U> Flow<U> mapToObj(IntFunction<? extends U> mapper);
+    LongFlow mapToLong(IntToLongFunction mapper);
+    DoubleFlow mapToDouble(IntToDoubleFunction mapper);
 
-    static IntFlow from(IntSupplier supplier) {
-        return new SuppliedFlow(supplier);
-    }
+    IntFlow peek(IntConsumer action);
+    void doIfPresent(IntConsumer action);
+
+    boolean doesMatch(IntPredicate predicate);
+    boolean notMatch(IntPredicate predicate);
+
+    OptionalInt get();
+
+    LongFlow asLongFlow();
+    DoubleFlow asDoubleFlow();
+    Flow<Integer> boxed();
 
     static IntFlow of(int value) {
-        return from(Suppliers.of(value));
+        return new StreamBackedIntFlow(IntStream.of(value));
     }
 
-    static IntFlow empty() {
-        return new EmptyFlow();
-    }
+    class StreamBackedIntFlow implements IntFlow {
 
-    class SuppliedFlow implements IntFlow {
+        private final IntStream mStream;
 
-        private final IntSupplier mSupplier;
-
-        private SuppliedFlow(IntSupplier supplier) {
-            mSupplier = supplier;
-        }
-
-        @Override
-        public OptionalInt get() {
-            return OptionalInt.of(mSupplier.getAsInt());
-        }
-
-        @Override
-        public boolean hasValue() {
-            return true;
-        }
-
-        @Override
-        public IntFlow map(IntUnaryOperator operator) {
-            return from(()->operator.applyAsInt(mSupplier.getAsInt()));
-        }
-
-        @Override
-        public DoubleFlow map(IntToDoubleFunction mapper) {
-            return DoubleFlow.from(()->mapper.applyAsDouble(mSupplier.getAsInt()));
-        }
-
-        @Override
-        public LongFlow map(IntToLongFunction mapper) {
-            return LongFlow.from(()->mapper.applyAsLong(mSupplier.getAsInt()));
-        }
-
-        @Override
-        public <R> Flow<R> map(IntFunction<R> mapper) {
-            return Flow.from(()->mapper.apply(mSupplier.getAsInt()));
+        public StreamBackedIntFlow(IntStream stream) {
+            mStream = stream;
         }
 
         @Override
         public IntFlow filter(IntPredicate predicate) {
-            int value = mSupplier.getAsInt();
-            return predicate.test(value) ? from(mSupplier) : empty();
+            return new StreamBackedIntFlow(mStream.filter(predicate));
         }
 
         @Override
-        public boolean doesAnswer(IntPredicate predicate) {
-            return predicate.test(mSupplier.getAsInt());
+        public IntFlow map(IntUnaryOperator mapper) {
+            return new StreamBackedIntFlow(mStream.map(mapper));
         }
 
         @Override
-        public Runnable futureConsume(IntConsumer consumer) {
-            return Runnables.fromConsumer(consumer, mSupplier.getAsInt());
+        public <U> Flow<U> mapToObj(IntFunction<? extends U> mapper) {
+            return new Flow.StreamBackedFlow<>(mStream.mapToObj(mapper));
         }
 
         @Override
-        public void consume(IntConsumer consumer) {
-            consumer.accept(mSupplier.getAsInt());
+        public LongFlow mapToLong(IntToLongFunction mapper) {
+            return new LongFlow.StreamBackedLongFlow(mStream.mapToLong(mapper));
         }
-    }
 
-    class EmptyFlow implements IntFlow {
+        @Override
+        public DoubleFlow mapToDouble(IntToDoubleFunction mapper) {
+            return new DoubleFlow.StreamBackedDoubleFlow(mStream.mapToDouble(mapper));
+        }
 
-        private EmptyFlow() {}
+        @Override
+        public IntFlow peek(IntConsumer action) {
+            return new StreamBackedIntFlow(mStream.peek(action));
+        }
+
+        @Override
+        public void doIfPresent(IntConsumer action) {
+            mStream.forEach(action);
+        }
+
+        @Override
+        public boolean doesMatch(IntPredicate predicate) {
+            return mStream.anyMatch(predicate);
+        }
+
+        @Override
+        public boolean notMatch(IntPredicate predicate) {
+            return mStream.noneMatch(predicate);
+        }
 
         @Override
         public OptionalInt get() {
-            return OptionalInt.empty();
+            return mStream.findAny();
         }
 
         @Override
-        public boolean hasValue() {
-            return false;
+        public LongFlow asLongFlow() {
+            return new LongFlow.StreamBackedLongFlow(mStream.asLongStream());
         }
 
         @Override
-        public IntFlow map(IntUnaryOperator operator) {
-            return this;
+        public DoubleFlow asDoubleFlow() {
+            return new DoubleFlow.StreamBackedDoubleFlow(mStream.asDoubleStream());
         }
 
         @Override
-        public DoubleFlow map(IntToDoubleFunction mapper) {
-            return DoubleFlow.empty();
-        }
-
-        @Override
-        public LongFlow map(IntToLongFunction mapper) {
-            return LongFlow.empty();
-        }
-
-        @Override
-        public <R> Flow<R> map(IntFunction<R> mapper) {
-            return Flow.empty();
-        }
-
-        @Override
-        public IntFlow filter(IntPredicate predicate) {
-            return this;
-        }
-
-        @Override
-        public boolean doesAnswer(IntPredicate predicate) {
-            return false;
-        }
-
-        @Override
-        public Runnable futureConsume(IntConsumer consumer) {
-            return Runnables.empty();
-        }
-
-        @Override
-        public void consume(IntConsumer consumer) {
+        public Flow<Integer> boxed() {
+            return new Flow.StreamBackedFlow<>(mStream.boxed());
         }
     }
 }

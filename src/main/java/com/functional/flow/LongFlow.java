@@ -1,156 +1,104 @@
 package com.functional.flow;
 
-import com.functional.Runnables;
-import com.functional.Suppliers;
-
 import java.util.OptionalLong;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongPredicate;
-import java.util.function.LongSupplier;
 import java.util.function.LongToDoubleFunction;
 import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
+import java.util.stream.LongStream;
 
 public interface LongFlow {
 
-    OptionalLong get();
-    boolean hasValue();
-
-    LongFlow map(LongUnaryOperator operator);
-    IntFlow map(LongToIntFunction mapper);
-    DoubleFlow map(LongToDoubleFunction mapper);
-    <R> Flow<R> map(LongFunction<R> mapper);
-
     LongFlow filter(LongPredicate predicate);
-    boolean doesAnswer(LongPredicate predicate);
 
-    Runnable futureConsume(LongConsumer consumer);
-    void consume(LongConsumer consumer);
+    LongFlow map(LongUnaryOperator mapper);
+    <U> Flow<U> mapToObj(LongFunction<? extends U> mapper);
+    IntFlow mapToInt(LongToIntFunction mapper);
+    DoubleFlow mapToDouble(LongToDoubleFunction mapper);
 
-    static LongFlow from(LongSupplier supplier) {
-        return new SuppliedFlow(supplier);
-    }
+    LongFlow peek(LongConsumer action);
+    void doIfPresent(LongConsumer action);
+
+    boolean doesMatch(LongPredicate predicate);
+    boolean notMatch(LongPredicate predicate);
+
+    OptionalLong get();
+
+    DoubleFlow asDoubleFlow();
+    Flow<Long> boxed();
 
     static LongFlow of(long value) {
-        return from(Suppliers.of(value));
+        return new LongFlow.StreamBackedLongFlow(LongStream.of(value));
     }
 
-    static LongFlow empty() {
-        return new EmptyFlow();
-    }
+    class StreamBackedLongFlow implements LongFlow {
 
-    class SuppliedFlow implements LongFlow {
+        private final LongStream mStream;
 
-        private final LongSupplier mSupplier;
-
-        private SuppliedFlow(LongSupplier supplier) {
-            mSupplier = supplier;
-        }
-
-        @Override
-        public OptionalLong get() {
-            return OptionalLong.of(mSupplier.getAsLong());
-        }
-
-        @Override
-        public boolean hasValue() {
-            return true;
-        }
-
-        @Override
-        public LongFlow map(LongUnaryOperator operator) {
-            return of(operator.applyAsLong(mSupplier.getAsLong()));
-        }
-
-        @Override
-        public IntFlow map(LongToIntFunction mapper) {
-            return IntFlow.of(mapper.applyAsInt(mSupplier.getAsLong()));
-        }
-
-        @Override
-        public DoubleFlow map(LongToDoubleFunction mapper) {
-            return DoubleFlow.of(mapper.applyAsDouble(mSupplier.getAsLong()));
-        }
-
-        @Override
-        public <R> Flow<R> map(LongFunction<R> mapper) {
-            return Flow.of(mapper.apply(mSupplier.getAsLong()));
+        public StreamBackedLongFlow(LongStream stream) {
+            mStream = stream;
         }
 
         @Override
         public LongFlow filter(LongPredicate predicate) {
-            long value = mSupplier.getAsLong();
-            return predicate.test(value) ? from(mSupplier) : empty();
+            return new StreamBackedLongFlow(mStream.filter(predicate));
         }
 
         @Override
-        public boolean doesAnswer(LongPredicate predicate) {
-            return predicate.test(mSupplier.getAsLong());
+        public LongFlow map(LongUnaryOperator mapper) {
+            return new StreamBackedLongFlow(mStream.map(mapper));
         }
 
         @Override
-        public Runnable futureConsume(LongConsumer consumer) {
-            return Runnables.fromConsumer(consumer, mSupplier.getAsLong());
+        public <U> Flow<U> mapToObj(LongFunction<? extends U> mapper) {
+            return new Flow.StreamBackedFlow<>(mStream.mapToObj(mapper));
         }
 
         @Override
-        public void consume(LongConsumer consumer) {
-            consumer.accept(mSupplier.getAsLong());
+        public IntFlow mapToInt(LongToIntFunction mapper) {
+            return new IntFlow.StreamBackedIntFlow(mStream.mapToInt(mapper));
         }
-    }
 
-    class EmptyFlow implements LongFlow {
+        @Override
+        public DoubleFlow mapToDouble(LongToDoubleFunction mapper) {
+            return new DoubleFlow.StreamBackedDoubleFlow(mStream.mapToDouble(mapper));
+        }
 
-        private EmptyFlow() {}
+        @Override
+        public LongFlow peek(LongConsumer action) {
+            return new StreamBackedLongFlow(mStream.peek(action));
+        }
+
+        @Override
+        public void doIfPresent(LongConsumer action) {
+            mStream.forEach(action);
+        }
+
+        @Override
+        public boolean doesMatch(LongPredicate predicate) {
+            return mStream.anyMatch(predicate);
+        }
+
+        @Override
+        public boolean notMatch(LongPredicate predicate) {
+            return mStream.noneMatch(predicate);
+        }
 
         @Override
         public OptionalLong get() {
-            return OptionalLong.empty();
+            return mStream.findAny();
         }
 
         @Override
-        public boolean hasValue() {
-            return false;
+        public DoubleFlow asDoubleFlow() {
+            return new DoubleFlow.StreamBackedDoubleFlow(mStream.asDoubleStream());
         }
 
         @Override
-        public LongFlow map(LongUnaryOperator operator) {
-            return this;
-        }
-
-        @Override
-        public IntFlow map(LongToIntFunction mapper) {
-            return IntFlow.empty();
-        }
-
-        @Override
-        public DoubleFlow map(LongToDoubleFunction mapper) {
-            return DoubleFlow.empty();
-        }
-
-        @Override
-        public <R> Flow<R> map(LongFunction<R> mapper) {
-            return Flow.empty();
-        }
-
-        @Override
-        public LongFlow filter(LongPredicate predicate) {
-            return this;
-        }
-
-        @Override
-        public boolean doesAnswer(LongPredicate predicate) {
-            return false;
-        }
-
-        @Override
-        public Runnable futureConsume(LongConsumer consumer) {
-            return Runnables.empty();
-        }
-
-        @Override
-        public void consume(LongConsumer consumer) {
+        public Flow<Long> boxed() {
+            return new Flow.StreamBackedFlow<>(mStream.boxed());
         }
     }
 }

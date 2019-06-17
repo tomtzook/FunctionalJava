@@ -1,215 +1,91 @@
 package com.functional.flow;
 
-import com.functional.Runnables;
-import com.functional.Suppliers;
-
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
-import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 public interface Flow<T> {
 
+    Flow<T> filter(Predicate<? super T> predicate);
+
+    <R> Flow<R> map(Function<? super T, ? extends R> mapper);
+    LongFlow mapToLong(ToLongFunction<? super T> mapper);
+    IntFlow mapToInt(ToIntFunction<? super T> mapper);
+    DoubleFlow mapToDouble(ToDoubleFunction<? super T> mapper);
+
+    Flow<T> peek(Consumer<? super T> action);
+    void doIfPresent(Consumer<? super T> action);
+
+    boolean doesMatch(Predicate<? super T> predicate);
+    boolean notMatch(Predicate<? super T> predicate);
+
     Optional<T> get();
-    boolean hasValue();
 
-    Flow<T> map(UnaryOperator<T> operator);
-    IntFlow map(ToIntFunction<T> mapper);
-    DoubleFlow map(ToDoubleFunction<T> mapper);
-    LongFlow map(ToLongFunction<T> mapper);
-
-    Flow<T> filter(Predicate<T> predicate);
-    boolean doesAnswer(Predicate<T> predicate);
-
-    Runnable futureConsume(Consumer<T> consumer);
-    void consume(Consumer<T> consumer);
-
-    static <T> Flow<T> from(Supplier<T> supplier) {
-        return new Supplied<>(supplier);
+    static <U> Flow<U> of(U value) {
+        return new StreamBackedFlow<>(Stream.of(value));
     }
 
-    static <T> Flow<T> of(T value) {
-        return from(Suppliers.of(value));
-    }
+    class StreamBackedFlow<U> implements Flow<U> {
 
-    static <T> Flow<T> empty() {
-        return new Empty<>();
-    }
+        private final Stream<U> mStream;
 
-    class Supplied<T> implements Flow<T> {
-
-        private final Supplier<T> mSupplier;
-
-        private Supplied(Supplier<T> supplier) {
-            mSupplier = supplier;
+        public StreamBackedFlow(Stream<U> stream) {
+            mStream = stream;
         }
 
         @Override
-        public Optional<T> get() {
-            return Optional.ofNullable(mSupplier.get());
+        public Flow<U> filter(Predicate<? super U> predicate) {
+            return new StreamBackedFlow<>(mStream.filter(predicate));
         }
 
         @Override
-        public boolean hasValue() {
-            return get().isPresent();
+        public <R> Flow<R> map(Function<? super U, ? extends R> mapper) {
+            return new StreamBackedFlow<>(mStream.map(mapper));
         }
 
         @Override
-        public Flow<T> map(UnaryOperator<T> operator) {
-            return Flow.from(()->operator.apply(mSupplier.get()));
+        public LongFlow mapToLong(ToLongFunction<? super U> mapper) {
+            return new LongFlow.StreamBackedLongFlow(mStream.mapToLong(mapper));
         }
 
         @Override
-        public IntFlow map(ToIntFunction<T> mapper) {
-            return IntFlow.from(()->mapper.applyAsInt(mSupplier.get()));
+        public IntFlow mapToInt(ToIntFunction<? super U> mapper) {
+            return new IntFlow.StreamBackedIntFlow(mStream.mapToInt(mapper));
         }
 
         @Override
-        public DoubleFlow map(ToDoubleFunction<T> mapper) {
-            return DoubleFlow.from(()->mapper.applyAsDouble(mSupplier.get()));
+        public DoubleFlow mapToDouble(ToDoubleFunction<? super U> mapper) {
+            return new DoubleFlow.StreamBackedDoubleFlow(mStream.mapToDouble(mapper));
         }
 
         @Override
-        public LongFlow map(ToLongFunction<T> mapper) {
-            return LongFlow.from(()->mapper.applyAsLong(mSupplier.get()));
+        public Flow<U> peek(Consumer<? super U> action) {
+            return new StreamBackedFlow<>(mStream.peek(action));
         }
 
         @Override
-        public Flow<T> filter(Predicate<T> predicate) {
-            return new Delegated<>(()-> predicate.test(mSupplier.get()) ?
-                    Flow.from(mSupplier) : Flow.empty());
+        public void doIfPresent(Consumer<? super U> action) {
+            mStream.forEach(action);
         }
 
         @Override
-        public boolean doesAnswer(Predicate<T> predicate) {
-            return predicate.test(mSupplier.get());
+        public boolean doesMatch(Predicate<? super U> predicate) {
+            return mStream.anyMatch(predicate);
         }
 
         @Override
-        public Runnable futureConsume(Consumer<T> consumer) {
-            return Runnables.fromConsumer(consumer, mSupplier.get());
+        public boolean notMatch(Predicate<? super U> predicate) {
+            return mStream.noneMatch(predicate);
         }
 
         @Override
-        public void consume(Consumer<T> consumer) {
-            consumer.accept(mSupplier.get());
-        }
-    }
-
-    class Delegated<T> implements Flow<T> {
-
-        private final Supplier<Flow<T>> mSupplier;
-
-        private Delegated(Supplier<Flow<T>> supplier) {
-            mSupplier = supplier;
-        }
-
-        @Override
-        public Optional<T> get() {
-            return mSupplier.get().get();
-        }
-
-        @Override
-        public boolean hasValue() {
-            return get().isPresent();
-        }
-
-        @Override
-        public Flow<T> map(UnaryOperator<T> mapper) {
-            return mSupplier.get().map(mapper);
-        }
-
-        @Override
-        public IntFlow map(ToIntFunction<T> mapper) {
-            return mSupplier.get().map(mapper);
-        }
-
-        @Override
-        public DoubleFlow map(ToDoubleFunction<T> mapper) {
-            return mSupplier.get().map(mapper);
-        }
-
-        @Override
-        public LongFlow map(ToLongFunction<T> mapper) {
-            return mSupplier.get().map(mapper);
-        }
-
-        @Override
-        public Flow<T> filter(Predicate<T> predicate) {
-            return mSupplier.get().filter(predicate);
-        }
-
-        @Override
-        public boolean doesAnswer(Predicate<T> predicate) {
-            return mSupplier.get().doesAnswer(predicate);
-        }
-
-        @Override
-        public Runnable futureConsume(Consumer<T> consumer) {
-            return mSupplier.get().futureConsume(consumer);
-        }
-
-        @Override
-        public void consume(Consumer<T> consumer) {
-            mSupplier.get().consume(consumer);
-        }
-    }
-
-    class Empty<T> implements Flow<T> {
-
-        private Empty() {}
-
-        @Override
-        public Optional<T> get() {
-            return Optional.empty();
-        }
-
-        @Override
-        public boolean hasValue() {
-            return false;
-        }
-
-        @Override
-        public Flow<T> map(UnaryOperator<T> operator) {
-            return this;
-        }
-
-        @Override
-        public IntFlow map(ToIntFunction<T> mapper) {
-            return IntFlow.empty();
-        }
-
-        @Override
-        public DoubleFlow map(ToDoubleFunction<T> mapper) {
-            return DoubleFlow.empty();
-        }
-
-        @Override
-        public LongFlow map(ToLongFunction<T> mapper) {
-            return LongFlow.empty();
-        }
-
-        @Override
-        public Flow<T> filter(Predicate<T> predicate) {
-            return this;
-        }
-
-        @Override
-        public boolean doesAnswer(Predicate<T> predicate) {
-            return false;
-        }
-
-        @Override
-        public Runnable futureConsume(Consumer<T> consumer) {
-            return Runnables.empty();
-        }
-
-        @Override
-        public void consume(Consumer<T> consumer) {
+        public Optional<U> get() {
+            return mStream.findAny();
         }
     }
 }
