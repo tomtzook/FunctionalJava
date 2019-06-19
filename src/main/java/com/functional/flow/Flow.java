@@ -1,5 +1,7 @@
 package com.functional.flow;
 
+import com.functional.Predicates;
+
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -25,6 +27,7 @@ public interface Flow<T> {
     boolean notMatch(Predicate<? super T> predicate);
 
     Optional<T> get();
+    boolean hasValue();
 
     static <U> Flow<U> of(U value) {
         return new StreamBackedFlow<>(Stream.of(value));
@@ -86,6 +89,11 @@ public interface Flow<T> {
         @Override
         public Optional<U> get() {
             return mStream.findAny();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return mStream.anyMatch(Predicates.truePredicate());
         }
     }
 }

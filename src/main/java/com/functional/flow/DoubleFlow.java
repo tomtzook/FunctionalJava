@@ -1,5 +1,7 @@
 package com.functional.flow;
 
+import com.functional.Predicates;
+
 import java.util.OptionalDouble;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
@@ -25,6 +27,7 @@ public interface DoubleFlow {
     boolean notMatch(DoublePredicate predicate);
 
     OptionalDouble get();
+    boolean hasValue();
 
     Flow<Double> boxed();
 
@@ -88,6 +91,11 @@ public interface DoubleFlow {
         @Override
         public OptionalDouble get() {
             return mStream.findAny();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return mStream.anyMatch(Predicates.trueDoublePredicate());
         }
 
         @Override

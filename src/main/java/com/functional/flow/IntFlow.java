@@ -1,5 +1,7 @@
 package com.functional.flow;
 
+import com.functional.Predicates;
+
 import java.util.OptionalInt;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
@@ -25,6 +27,7 @@ public interface IntFlow {
     boolean notMatch(IntPredicate predicate);
 
     OptionalInt get();
+    boolean hasValue();
 
     LongFlow asLongFlow();
     DoubleFlow asDoubleFlow();
@@ -90,6 +93,11 @@ public interface IntFlow {
         @Override
         public OptionalInt get() {
             return mStream.findAny();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return mStream.anyMatch(Predicates.trueIntPredicate());
         }
 
         @Override

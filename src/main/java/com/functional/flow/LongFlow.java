@@ -1,5 +1,7 @@
 package com.functional.flow;
 
+import com.functional.Predicates;
+
 import java.util.OptionalLong;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
@@ -25,6 +27,7 @@ public interface LongFlow {
     boolean notMatch(LongPredicate predicate);
 
     OptionalLong get();
+    boolean hasValue();
 
     DoubleFlow asDoubleFlow();
     Flow<Long> boxed();
@@ -89,6 +92,11 @@ public interface LongFlow {
         @Override
         public OptionalLong get() {
             return mStream.findAny();
+        }
+
+        @Override
+        public boolean hasValue() {
+            return mStream.anyMatch(Predicates.trueLongPredicate());
         }
 
         @Override
